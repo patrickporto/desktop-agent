@@ -318,3 +318,118 @@ uvx desktop-agent mouse move --help
 - Image location (`locate`) can be slow on large screens - use regions when possible
 - Keyboard commands are generally fast (< 100ms)
 - Screenshots depend on screen resolution and region size
+
+## JSON Output Mode
+
+All commands support a `--json` flag for structured output, ideal for programmatic use by AI agents:
+
+```bash
+# Text output (default, human-readable)
+uvx desktop-agent mouse position
+# Output: Position: (960, 540)
+
+# JSON output (structured, machine-readable)
+uvx desktop-agent mouse position --json
+# Output: {"success": true, "command": "mouse.position", "timestamp": "2026-01-31T10:00:00Z", "duration_ms": 5, "data": {"position": {"x": 960, "y": 540}}}
+```
+
+### Response Schema
+
+All JSON responses follow this schema:
+
+```json
+{
+  "success": true,
+  "command": "category.command",
+  "timestamp": "2026-01-31T10:00:00Z",
+  "duration_ms": 150,
+  "data": { ... },
+  "error": null
+}
+```
+
+### Error Response Schema
+
+```json
+{
+  "success": false,
+  "command": "category.command",
+  "timestamp": "2026-01-31T10:00:00Z",
+  "duration_ms": 50,
+  "data": null,
+  "error": {
+    "code": "image_not_found",
+    "message": "Image file 'button.png' not found",
+    "details": {},
+    "recoverable": true
+  }
+}
+```
+
+### Error Codes
+
+| Code | Description |
+|------|-------------|
+| `success` | Command succeeded |
+| `invalid_argument` | Invalid command arguments |
+| `coordinates_out_of_bounds` | Coordinates outside screen |
+| `image_not_found` | Image file not found or not on screen |
+| `window_not_found` | Target window not found |
+| `ocr_failed` | OCR operation failed |
+| `application_not_found` | Application not found |
+| `permission_denied` | Permission denied |
+| `platform_not_supported` | Platform not supported |
+| `timeout` | Operation timed out |
+| `unknown_error` | Unknown error |
+
+### JSON Output Examples
+
+**Mouse move:**
+```bash
+uvx desktop-agent mouse move 960 540 --json
+```
+```json
+{"success": true, "command": "mouse.move", "timestamp": "...", "duration_ms": 150, "data": {"x": 960, "y": 540, "duration": 0}, "error": null}
+```
+
+**Screen size:**
+```bash
+uvx desktop-agent screen size --json
+```
+```json
+{"success": true, "command": "screen.size", "timestamp": "...", "duration_ms": 5, "data": {"size": {"width": 1920, "height": 1080}}, "error": null}
+```
+
+**Locate image:**
+```bash
+uvx desktop-agent screen locate button.png --json
+```
+```json
+{"success": true, "command": "screen.locate", "timestamp": "...", "duration_ms": 250, "data": {"image_found": true, "bounding_box": {"left": 100, "top": 200, "width": 50, "height": 30, "center_x": 125, "center_y": 215}}, "error": null}
+```
+
+**List windows:**
+```bash
+uvx desktop-agent app list --json
+```
+```json
+{"success": true, "command": "app.list", "timestamp": "...", "duration_ms": 100, "data": {"windows": ["Untitled - Notepad", "Google Chrome", "Visual Studio Code"]}, "error": null}
+```
+
+**Error example:**
+```bash
+uvx desktop-agent screen locate missing.png --json
+```
+```json
+{"success": false, "command": "screen.locate", "timestamp": "...", "duration_ms": 50, "data": null, "error": {"code": "image_not_found", "message": "Image file 'missing.png' not found", "details": {}, "recoverable": true}}
+```
+
+## Integration Tips for AI Agents
+
+1. **Always check screen size first** when working with absolute coordinates
+2. **Use relative positioning** when possible (e.g., get current position, calculate offset)
+3. **Combine commands** for complex workflows
+4. **Validate before executing** (e.g., check if image exists on screen)
+5. **Provide user feedback** using message dialogs for important operations
+6. **Handle errors gracefully** - commands may fail if UI state changes
+7. **Use `--json` flag** for reliable parsing by AI agents

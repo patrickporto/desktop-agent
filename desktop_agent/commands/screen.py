@@ -1,10 +1,12 @@
 """Screen and screenshot commands."""
+import time
 import typer
 import pyautogui
 from pathlib import Path
 from typing import Optional
 import json
 import pywinctl
+from desktop_agent.utils import CommandResponse, ErrorCode, DesktopAgentError
 
 app = typer.Typer(help="Screen and screenshot commands")
 
@@ -15,21 +17,46 @@ def _get_window_region(window_name: Optional[str] = None, active: bool = False) 
         if active:
             window = pywinctl.getActiveWindow()
             if not window:
-                typer.echo("Error: No active window found", err=True)
                 return None
         elif window_name:
             windows = pywinctl.getWindowsWithTitle(window_name)
             if not windows:
-                typer.echo(f"Error: Window with title '{window_name}' not found", err=True)
                 return None
             window = windows[0]
         else:
             return None
 
         return (int(window.left), int(window.top), int(window.width), int(window.height))
-    except Exception as e:
-        typer.echo(f"Error getting window region: {e}", err=True)
+    except Exception:
         return None
+
+
+def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
+    start = time.time()
+    try:
+        result = func(*args, **kwargs)
+        duration_ms = int((time.time() - start) * 1000)
+        response = CommandResponse.success_response(
+            command=command,
+            data=result,
+            duration_ms=duration_ms,
+        )
+        response.print(json_mode)
+    except Exception as e:
+        duration_ms = int((time.time() - start) * 1000)
+        error = DesktopAgentError(
+            code=ErrorCode.from_exception(e),
+            message=str(e),
+        )
+        response = CommandResponse.error_response(
+            command=command,
+            code=error.code.to_string(),
+            message=error.message,
+            details=error.details,
+            duration_ms=duration_ms,
+        )
+        response.print(json_mode)
+        raise sys.exit(error.exit_code())
 
 
 @app.command()
@@ -38,37 +65,42 @@ def screenshot(
     region: str = typer.Option(None, "--region", "-r", help="Region as 'x,y,width,height'"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Target window title"),
     active: bool = typer.Option(False, "--active", "-a", help="Target active window"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Take a screenshot of the entire screen, a window, or a specific region."""
-    target_region = None
+    def execute():
+        target_region = None
 
-    # Determine region from window targeting
-    window_region = _get_window_region(window, active)
-    if window_region:
-        target_region = window_region
-        typer.echo(f"Targeting window region: {target_region}")
+        window_region = _get_window_region(window, active)
+        if window_region:
+            target_region = window_region
 
-    # Manual region override
-    if region:
-        try:
-            target_region = tuple(map(int, region.split(",")))
-            typer.echo(f"Using manual region override: {target_region}")
-        except ValueError:
-            typer.echo("Error: Region must be in format 'x,y,width,height'", err=True)
-            raise typer.Exit(1)
+        if region:
+            try:
+                target_region = tuple(map(int, region.split(",")))
+            except ValueError:
+                raise DesktopAgentError(
+                    code=ErrorCode.INVALID_ARGUMENT,
+                    message="Region must be in format 'x,y,width,height'",
+                )
 
-    try:
         if target_region:
             img = pyautogui.screenshot(region=target_region)
             img.save(filename)
-            typer.echo(f"Screenshot saved to {filename} (region: {target_region})")
+            return {
+                "filename": filename,
+                "region": {
+                    "x": target_region[0],
+                    "y": target_region[1],
+                    "width": target_region[2],
+                    "height": target_region[3],
+                },
+            }
         else:
             img = pyautogui.screenshot()
             img.save(filename)
-            typer.echo(f"Screenshot saved to {filename}")
-    except Exception as e:
-        typer.echo(f"Error taking screenshot: {e}", err=True)
-        raise typer.Exit(1)
+            return {"filename": filename, "region": None}
+    _handle_command("screen.screenshot", execute, json)
 
 
 @app.command()
@@ -77,23 +109,34 @@ def locate(
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Locate an image on the screen or within a targeted window."""
-    region = _get_window_region(window, active)
-    if region:
-        typer.echo(f"Searching within window region: {region}")
+    def execute():
+        region = _get_window_region(window, active)
 
-    try:
+        if not Path(image).exists():
+            raise DesktopAgentError(
+                code=ErrorCode.IMAGE_NOT_FOUND,
+                message=f"Image file '{image}' not found",
+            )
+
         location = pyautogui.locateOnScreen(image, confidence=confidence, region=region)
         if location:
-            typer.echo(f"Found at: x={location.left}, y={location.top}, width={location.width}, height={location.height}")
+            return {
+                "image_found": True,
+                "bounding_box": {
+                    "left": location.left,
+                    "top": location.top,
+                    "width": location.width,
+                    "height": location.height,
+                    "center_x": location.left + location.width // 2,
+                    "center_y": location.top + location.height // 2,
+                },
+            }
         else:
-            typer.echo("Image not found on screen")
-    except pyautogui.ImageNotFoundException:
-        typer.echo("Image not found on screen")
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+            return {"image_found": False}
+    _handle_command("screen.locate", execute, json)
 
 
 @app.command()
@@ -102,72 +145,84 @@ def locate_center(
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Get the center coordinates of an image on the screen or within a window."""
-    region = _get_window_region(window, active)
-    if region:
-        typer.echo(f"Searching within window region: {region}")
+    def execute():
+        region = _get_window_region(window, active)
 
-    try:
+        if not Path(image).exists():
+            raise DesktopAgentError(
+                code=ErrorCode.IMAGE_NOT_FOUND,
+                message=f"Image file '{image}' not found",
+            )
+
         location = pyautogui.locateCenterOnScreen(image, confidence=confidence, region=region)
         if location:
-            typer.echo(f"Center at: ({location.x}, {location.y})")
+            return {"position": {"x": location.x, "y": location.y}}
         else:
-            typer.echo("Image not found on screen")
-    except pyautogui.ImageNotFoundException:
-        typer.echo("Image not found on screen")
-    except Exception as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
+            return {"image_found": False}
+    _handle_command("screen.locate_center", execute, json)
 
 
 @app.command()
 def pixel(
     x: int = typer.Argument(..., help="X coordinate"),
     y: int = typer.Argument(..., help="Y coordinate"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Get the RGB color of a pixel at specified coordinates."""
-    color = pyautogui.pixel(x, y)
-    typer.echo(f"Pixel at ({x}, {y}): RGB{color}")
+    def execute():
+        color = pyautogui.pixel(x, y)
+        return {
+            "pixel": {
+                "r": color[0],
+                "g": color[1],
+                "b": color[2],
+                "hex": f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}",
+            }
+        }
+    _handle_command("screen.pixel", execute, json)
 
 
 @app.command()
-def size():
+def size(
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
+):
     """Get the screen size."""
-    screen_size = pyautogui.size()
-    typer.echo(f"Screen size: {screen_size.width}x{screen_size.height}")
+    def execute():
+        screen_size = pyautogui.size()
+        return {
+            "size": {
+                "width": screen_size.width,
+                "height": screen_size.height,
+            }
+        }
+    _handle_command("screen.size", execute, json)
 
 
 @app.command()
 def on_screen(
     x: int = typer.Argument(..., help="X coordinate"),
     y: int = typer.Argument(..., help="Y coordinate"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Check if coordinates are on the screen."""
-    is_on_screen = pyautogui.onScreen(x, y)
-    if is_on_screen:
-        typer.echo(f"({x}, {y}) is on screen")
-    else:
-        typer.echo(f"({x}, {y}) is NOT on screen")
+    def execute():
+        is_on_screen = pyautogui.onScreen(x, y)
+        return {"on_screen": is_on_screen}
+    _handle_command("screen.on_screen", execute, json)
 
 
-# OCR functionality
 _reader = None
 _reader_langs = None
 
 
 def _get_system_language() -> str:
-    """Detect the system language in a cross-platform way.
-    
-    Returns the ISO 639-1 language code (e.g., 'en', 'pt', 'es').
-    Falls back to 'en' if detection fails.
-    """
     import locale
     try:
-        # Get system locale (works on Windows, Linux, macOS)
         system_locale = locale.getdefaultlocale()[0]
         if system_locale:
-            # Extract language code (e.g., 'pt_BR' -> 'pt', 'en_US' -> 'en')
             lang_code = system_locale.split('_')[0].lower()
             return lang_code
     except Exception:
@@ -176,24 +231,17 @@ def _get_system_language() -> str:
 
 
 def _get_default_languages() -> list[str]:
-    """Get default languages for OCR based on system locale.
-    
-    Returns a list with the system language and English (if different).
-    """
     system_lang = _get_system_language()
     if system_lang == 'en':
         return ['en']
     return [system_lang, 'en']
 
 
-def get_reader(lang: list[str] = None):
-    """Get or create EasyOCR reader instance."""
+def get_reader(lang: Optional[list[str]] = None):
     global _reader, _reader_langs
     langs = lang or _get_default_languages()
-    # Reinitialize if languages changed
     if _reader is None or set(langs) != set(_reader_langs or []):
         import easyocr
-        typer.echo(f"Initializing EasyOCR (languages: {', '.join(langs)})...")
         _reader = easyocr.Reader(langs)
         _reader_langs = langs
     return _reader
@@ -207,74 +255,65 @@ def locate_text_coordinates(
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case sensitive search"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Locate text coordinates on screen, within a window, or in an image using OCR."""
-    # Get or take screenshot
-    if image:
-        if not Path(image).exists():
-            typer.echo(f"Error: Image file '{image}' not found", err=True)
-            raise typer.Exit(1)
-        image_path = image
-    else:
-        # Check for window targeting
+    def execute():
         region = _get_window_region(window, active)
-        if region:
-            typer.echo(f"Taking screenshot of window region: {region}")
 
-        # Take screenshot
-        screenshot_path = "temp_screenshot.png"
-        img = pyautogui.screenshot(region=region)
-        img.save(screenshot_path)
-        image_path = screenshot_path
-        typer.echo(f"Screenshot taken: {screenshot_path}")
+        if image:
+            if not Path(image).exists():
+                raise DesktopAgentError(
+                    code=ErrorCode.IMAGE_NOT_FOUND,
+                    message=f"Image file '{image}' not found",
+                )
+            image_path = image
+        else:
+            screenshot_path = "temp_screenshot.png"
+            img = pyautogui.screenshot(region=region)
+            img.save(screenshot_path)
+            image_path = screenshot_path
 
-    # Initialize reader
-    languages = lang.split(',') if lang else None
-    reader = get_reader(languages)
+        languages = lang.split(',') if lang else None
+        reader = get_reader(languages)
 
-    # Perform OCR
-    typer.echo("Performing OCR...")
-    results = reader.readtext(image_path)
+        results = reader.readtext(image_path)
 
-    # Search for text
-    search_text = search if case_sensitive else search.lower()
-    matches = []
+        search_text = search if case_sensitive else search.lower()
+        matches = []
 
-    for (bbox, text, confidence) in results:
-        compare_text = text if case_sensitive else text.lower()
-        if search_text in compare_text:
-            # bbox is [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
-            top_left = bbox[0]
-            bottom_right = bbox[2]
-            
-            x1, y1 = int(top_left[0]), int(top_left[1])
-            x2, y2 = int(bottom_right[0]), int(bottom_right[1])
-            width = x2 - x1
-            height = y2 - y1
-            center_x = int((x1 + x2) / 2)
-            center_y = int((y1 + y2) / 2)
-            
-            match = {
-                "text": text,
-                "confidence": float(confidence),
-                "bbox": {
-                    "x": x1,
-                    "y": y1,
-                    "width": width,
-                    "height": height
-                },
-                "center": {
-                    "x": center_x,
-                    "y": center_y
+        for (bbox, text, confidence) in results:
+            compare_text = text if case_sensitive else text.lower()
+            if search_text in compare_text:
+                top_left = bbox[0]
+                bottom_right = bbox[2]
+
+                x1, y1 = int(top_left[0]), int(top_left[1])
+                x2, y2 = int(bottom_right[0]), int(bottom_right[1])
+                width = x2 - x1
+                height = y2 - y1
+                center_x = int((x1 + x2) / 2)
+                center_y = int((y1 + y2) / 2)
+
+                match = {
+                    "text": text,
+                    "confidence": float(confidence),
+                    "bounding_box": {
+                        "x": x1,
+                        "y": y1,
+                        "width": width,
+                        "height": height,
+                        "center_x": center_x,
+                        "center_y": center_y,
+                    },
                 }
-            }
-            matches.append(match)
+                matches.append(match)
 
-    # Output results
-    typer.echo(json.dumps(matches, indent=2))
-    # Cleanup temp screenshot
-    if not image and Path(screenshot_path).exists():
-        Path(screenshot_path).unlink()
+        if not image and Path("temp_screenshot.png").exists():
+            Path("temp_screenshot.png").unlink()
+
+        return {"matches": matches}
+    _handle_command("screen.locate_text_coordinates", execute, json)
 
 
 @app.command(name="read-all-text")
@@ -283,68 +322,61 @@ def read_all_text(
     lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Languages to use (comma-separated, default: system language + en)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Read from a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Read from the active window"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Read all text from screen, a targeted window, or an image using OCR."""
-    # Get or take screenshot
-    if image:
-        if not Path(image).exists():
-            typer.echo(f"Error: Image file '{image}' not found", err=True)
-            raise typer.Exit(1)
-        image_path = image
-    else:
-        # Check for window targeting
+    def execute():
         region = _get_window_region(window, active)
-        if region:
-            typer.echo(f"Taking screenshot of window region: {region}")
 
-        # Take screenshot
-        screenshot_path = "temp_screenshot.png"
-        img = pyautogui.screenshot(region=region)
-        img.save(screenshot_path)
-        image_path = screenshot_path
-        typer.echo(f"Screenshot taken: {screenshot_path}")
+        if image:
+            if not Path(image).exists():
+                raise DesktopAgentError(
+                    code=ErrorCode.IMAGE_NOT_FOUND,
+                    message=f"Image file '{image}' not found",
+                )
+            image_path = image
+        else:
+            screenshot_path = "temp_screenshot.png"
+            img = pyautogui.screenshot(region=region)
+            img.save(screenshot_path)
+            image_path = screenshot_path
 
-    # Initialize reader
-    languages = lang.split(',') if lang else None
-    reader = get_reader(languages)
+        languages = lang.split(',') if lang else None
+        reader = get_reader(languages)
 
-    # Perform OCR
-    typer.echo("Performing OCR...")
-    results = reader.readtext(image_path)
+        results = reader.readtext(image_path)
 
-    # Format results
-    all_text = []
-    for (bbox, text, confidence) in results:
-        top_left = bbox[0]
-        bottom_right = bbox[2]
-        
-        x1, y1 = int(top_left[0]), int(top_left[1])
-        x2, y2 = int(bottom_right[0]), int(bottom_right[1])
-        width = x2 - x1
-        height = y2 - y1
-        center_x = int((x1 + x2) / 2)
-        center_y = int((y1 + y2) / 2)
-        
-        item = {
-            "text": text,
-            "confidence": float(confidence),
-            "bbox": {
-                "x": x1,
-                "y": y1,
-                "width": width,
-                "height": height
-            },
-            "center": {
-                "x": center_x,
-                "y": center_y
+        all_text = []
+        for (bbox, text, confidence) in results:
+            top_left = bbox[0]
+            bottom_right = bbox[2]
+
+            x1, y1 = int(top_left[0]), int(top_left[1])
+            x2, y2 = int(bottom_right[0]), int(bottom_right[1])
+            width = x2 - x1
+            height = y2 - y1
+            center_x = int((x1 + x2) / 2)
+            center_y = int((y1 + y2) / 2)
+
+            item = {
+                "text": text,
+                "confidence": float(confidence),
+                "bounding_box": {
+                    "x": x1,
+                    "y": y1,
+                    "width": width,
+                    "height": height,
+                    "center_x": center_x,
+                    "center_y": center_y,
+                },
             }
-        }
-        all_text.append(item)
+            all_text.append(item)
 
-    # Output results
-    typer.echo(json.dumps(all_text, indent=2))
+        if not image and Path("temp_screenshot.png").exists():
+            Path("temp_screenshot.png").unlink()
 
-    # Cleanup temp screenshot
-    if not image and Path(screenshot_path).exists():
-        Path(screenshot_path).unlink()
+        return {"text_items": all_text}
+    _handle_command("screen.read_all_text", execute, json)
 
+
+import sys

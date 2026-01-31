@@ -21,6 +21,7 @@ dependencies = [
     "pyautogui>=0.9.54",
     "pywinctl>=0.4.1",
     "typer>=0.21.1",
+    "pydantic>=2.0.0",
 ]
 
 [project.scripts]

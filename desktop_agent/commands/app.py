@@ -1,7 +1,10 @@
 """Application control commands - cross-platform app launching and focusing."""
 import platform
 import subprocess
+import time
 import typer
+from typing import Optional
+from desktop_agent.utils import CommandResponse, ErrorCode, DesktopAgentError
 
 app = typer.Typer(help="Application control commands")
 
@@ -17,102 +20,95 @@ def _get_platform() -> str:
         return "linux"
 
 
+def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
+    start = time.time()
+    try:
+        result = func(*args, **kwargs)
+        duration_ms = int((time.time() - start) * 1000)
+        response = CommandResponse.success_response(
+            command=command,
+            data=result,
+            duration_ms=duration_ms,
+        )
+        response.print(json_mode)
+    except Exception as e:
+        duration_ms = int((time.time() - start) * 1000)
+        error = DesktopAgentError(
+            code=ErrorCode.from_exception(e),
+            message=str(e),
+        )
+        response = CommandResponse.error_response(
+            command=command,
+            code=error.code.to_string(),
+            message=error.message,
+            details=error.details,
+            duration_ms=duration_ms,
+        )
+        response.print(json_mode)
+        raise sys.exit(error.exit_code())
+
+
 @app.command()
 def open(
     name: str = typer.Argument(..., help="Application name or path to open"),
-    args: list[str] = typer.Option(None, "--arg", "-a", help="Arguments to pass to the application"),
+    args: Optional[list[str]] = typer.Option(None, "--arg", "-a", help="Arguments to pass to the application"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
-    """
-    Open an application by name or path.
-    
-    Cross-platform support:
-    - Windows: Uses 'start' command
-    - macOS: Uses 'open -a' command  
-    - Linux: Uses the application name directly or common launchers
-    
-    Examples:
-        desktop-agent app open notepad
-        desktop-agent app open "Google Chrome"
-        desktop-agent app open /path/to/app
-    """
-    current_platform = _get_platform()
-    args = args or []
-    
-    try:
+    """Open an application by name or path."""
+    def execute():
+        current_platform = _get_platform()
+        args_list = args or []
+
         if current_platform == "windows":
-            # On Windows, use 'start' command
-            # shell=True is needed for 'start' to work
-            if args:
+            if args_list:
                 subprocess.Popen(
-                    f'start "" "{name}" {" ".join(args)}',
+                    f'start "" "{name}" {" ".join(args_list)}',
                     shell=True,
                 )
             else:
                 subprocess.Popen(f'start "" "{name}"', shell=True)
-                
+
         elif current_platform == "macos":
-            # On macOS, use 'open -a' for applications
             cmd = ["open", "-a", name]
-            if args:
-                cmd.extend(["--args"] + args)
+            if args_list:
+                cmd.extend(["--args"] + args_list)
             subprocess.Popen(cmd)
-            
-        else:  # Linux
-            # Try common methods to open applications
-            cmd = [name] + args
+
+        else:
+            cmd = [name] + args_list
             subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            
-        typer.echo(f"Opened application: {name}")
-        
-    except FileNotFoundError:
-        typer.echo(f"Error: Application '{name}' not found", err=True)
-        raise typer.Exit(1)
-    except Exception as e:
-        typer.echo(f"Error opening application: {e}", err=True)
-        raise typer.Exit(1)
+
+        return {"application": name, "args": args_list}
+    _handle_command("app.open", execute, json)
 
 
 @app.command()
 def focus(
     name: str = typer.Argument(..., help="Window title or application name to focus"),
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
-    """
-    Focus on a window by title or application name.
-    
-    Cross-platform support:
-    - Windows: Uses pyautogui to find and focus windows
-    - macOS: Uses AppleScript via osascript
-    - Linux: Uses wmctrl or xdotool
-    
-    Examples:
-        desktop-agent app focus "Untitled - Notepad"
-        desktop-agent app focus "Google Chrome"
-        desktop-agent app focus "Visual Studio Code"
-    """
-    current_platform = _get_platform()
-    
-    try:
+    """Focus on a window by title or application name."""
+    def execute():
+        current_platform = _get_platform()
+
         if current_platform == "windows":
-            import pyautogui
             import ctypes
             from ctypes import wintypes
-            
-            # Find window by title
+
             user32 = ctypes.windll.user32
-            
-            # Callback function to enumerate windows
+
             EnumWindowsProc = ctypes.WINFUNCTYPE(
                 ctypes.c_bool,
                 wintypes.HWND,
                 wintypes.LPARAM
             )
-            
+
             found_hwnd = None
-            
+
             def enum_callback(hwnd, lparam):
                 nonlocal found_hwnd
                 if user32.IsWindowVisible(hwnd):
@@ -123,24 +119,23 @@ def focus(
                         title = buffer.value
                         if name.lower() in title.lower():
                             found_hwnd = hwnd
-                            return False  # Stop enumeration
-                return True  # Continue enumeration
-            
+                            return False
+                return True
+
             user32.EnumWindows(EnumWindowsProc(enum_callback), 0)
-            
+
             if found_hwnd:
-                # Restore if minimized
                 SW_RESTORE = 9
                 user32.ShowWindow(found_hwnd, SW_RESTORE)
-                # Bring to foreground
                 user32.SetForegroundWindow(found_hwnd)
-                typer.echo(f"Focused window: {name}")
+                return {"window_title": name, "focused": True}
             else:
-                typer.echo(f"Error: Window '{name}' not found", err=True)
-                raise typer.Exit(1)
-                
+                raise DesktopAgentError(
+                    code=ErrorCode.WINDOW_NOT_FOUND,
+                    message=f"Window '{name}' not found",
+                )
+
         elif current_platform == "macos":
-            # Use AppleScript to activate application
             script = f'''
             tell application "{name}"
                 activate
@@ -152,13 +147,15 @@ def focus(
                 text=True,
             )
             if result.returncode == 0:
-                typer.echo(f"Focused application: {name}")
+                return {"application": name, "focused": True}
             else:
-                typer.echo(f"Error: Could not focus '{name}': {result.stderr}", err=True)
-                raise typer.Exit(1)
-                
-        else:  # Linux
-            # Try wmctrl first, then xdotool
+                raise DesktopAgentError(
+                    code=ErrorCode.WINDOW_NOT_FOUND,
+                    message=f"Could not focus '{name}'",
+                    details={"stderr": result.stderr},
+                )
+
+        else:
             try:
                 result = subprocess.run(
                     ["wmctrl", "-a", name],
@@ -166,58 +163,46 @@ def focus(
                     text=True,
                 )
                 if result.returncode == 0:
-                    typer.echo(f"Focused window: {name}")
+                    return {"window_title": name, "focused": True}
                 else:
                     raise FileNotFoundError("wmctrl failed")
             except FileNotFoundError:
-                # Try xdotool
                 result = subprocess.run(
                     ["xdotool", "search", "--name", name, "windowactivate"],
                     capture_output=True,
                     text=True,
                 )
                 if result.returncode == 0:
-                    typer.echo(f"Focused window: {name}")
+                    return {"window_title": name, "focused": True}
                 else:
-                    typer.echo(
-                        f"Error: Could not focus '{name}'. Install wmctrl or xdotool.",
-                        err=True
+                    raise DesktopAgentError(
+                        code=ErrorCode.WINDOW_NOT_FOUND,
+                        message=f"Could not focus '{name}'. Install wmctrl or xdotool.",
                     )
-                    raise typer.Exit(1)
-                    
-    except Exception as e:
-        if not isinstance(e, typer.Exit):
-            typer.echo(f"Error focusing window: {e}", err=True)
-            raise typer.Exit(1)
-        raise
+    _handle_command("app.focus", execute, json)
 
 
 @app.command()
-def list():
-    """
-    List all visible windows.
-    
-    Cross-platform support:
-    - Windows: Uses Windows API
-    - macOS: Uses AppleScript
-    - Linux: Uses wmctrl
-    """
-    current_platform = _get_platform()
-    windows = []
-    
-    try:
+def list(
+    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
+):
+    """List all visible windows."""
+    def execute():
+        current_platform = _get_platform()
+        windows = []
+
         if current_platform == "windows":
             import ctypes
             from ctypes import wintypes
-            
+
             user32 = ctypes.windll.user32
-            
+
             EnumWindowsProc = ctypes.WINFUNCTYPE(
                 ctypes.c_bool,
                 wintypes.HWND,
                 wintypes.LPARAM
             )
-            
+
             def enum_callback(hwnd, lparam):
                 if user32.IsWindowVisible(hwnd):
                     length = user32.GetWindowTextLengthW(hwnd)
@@ -228,9 +213,9 @@ def list():
                         if title.strip():
                             windows.append(title)
                 return True
-            
+
             user32.EnumWindows(EnumWindowsProc(enum_callback), 0)
-            
+
         elif current_platform == "macos":
             script = '''
             tell application "System Events"
@@ -249,12 +234,11 @@ def list():
                 text=True,
             )
             if result.returncode == 0 and result.stdout.strip():
-                # Parse AppleScript list output
                 output = result.stdout.strip()
                 if output:
                     windows = [w.strip() for w in output.split(",")]
-                    
-        else:  # Linux
+
+        else:
             result = subprocess.run(
                 ["wmctrl", "-l"],
                 capture_output=True,
@@ -263,23 +247,17 @@ def list():
             if result.returncode == 0:
                 for line in result.stdout.strip().split("\n"):
                     if line:
-                        # wmctrl format: <hwnd> <desktop> <hostname> <title>
                         parts = line.split(None, 3)
                         if len(parts) >= 4:
                             windows.append(parts[3])
             else:
-                typer.echo("Error: wmctrl not found. Install it with: sudo apt install wmctrl", err=True)
-                raise typer.Exit(1)
-                
-        if windows:
-            typer.echo("Visible windows:")
-            for i, title in enumerate(windows, 1):
-                typer.echo(f"  {i}. {title}")
-        else:
-            typer.echo("No visible windows found")
-            
-    except Exception as e:
-        if not isinstance(e, typer.Exit):
-            typer.echo(f"Error listing windows: {e}", err=True)
-            raise typer.Exit(1)
-        raise
+                raise DesktopAgentError(
+                    code=ErrorCode.PLATFORM_NOT_SUPPORTED,
+                    message="wmctrl not found. Install it with: sudo apt install wmctrl",
+                )
+
+        return {"windows": windows}
+    _handle_command("app.list", execute, json)
+
+
+import sys
