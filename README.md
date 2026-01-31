@@ -6,19 +6,31 @@ Control mouse, keyboard, and screen programmatically through a simple CLI interf
 
 ## ⚡ Quick Install
 
-Install with a single command:
+### For AI Agents
 
+Add this skill to your AI coding agent with a single command:
+
+```bash
+npx skills add patrickporto/desktop-agent
+```
+
+### For Users
+
+Install the CLI with pipx (recommended):
+
+```bash
 pipx install desktop-agent
 ```
 
-Or using uvx:
+Or run without installing using uvx:
 
 ```bash
-uvx desktop-agent
+uvx desktop-agent --help
 ```
 
 Or using pip:
-```
+
+```bash
 pip install desktop-agent
 ```
 
