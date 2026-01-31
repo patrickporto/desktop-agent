@@ -1,13 +1,40 @@
-# Desktop Skill
+# Desktop Control Skill
 
-CLI para controlar mouse, teclado e tela usando PyAutoGUI.
+🤖 **AI Agent Skill** for desktop automation using PyAutoGUI.
 
-## Instalação
+Control mouse, keyboard, and screen programmatically through a simple CLI interface.
+
+---
+
+## 🎯 For AI Agents
+
+This project is packaged as an **AI Agent Skill**. To use it:
+
+1. **Read the skill documentation**: [SKILL.md](SKILL.md)
+2. **Install the skill**: Run `python scripts/install.py`
+3. **Invoke commands**: Use `python main.py <category> <command>`
+
+**Quick Reference for Agents:**
+- All commands documented in [SKILL.md](SKILL.md)
+- Practical examples in [examples/automation_examples.md](examples/automation_examples.md)
+- Help system: `python main.py --help`
+
+---
+
+## 📦 Installation
+
+### Quick Install (Recommended)
 
 ```bash
-# Instalar dependências
-uv sync
+# Clone or download this repository
+cd desktop-skill
+
+# Run installation script
+python scripts/install.py
 ```
+
+### Manual Install
+
 
 ## Uso
 
