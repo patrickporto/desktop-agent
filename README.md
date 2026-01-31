@@ -4,6 +4,24 @@
 
 Control mouse, keyboard, and screen programmatically through a simple CLI interface.
 
+## ⚡ Quick Install
+
+Install with a single command:
+
+pipx install desktop-agent
+```
+
+Or using uvx:
+
+```bash
+uvx desktop-agent
+```
+
+Or using pip:
+```
+pip install desktop-agent
+```
+
 ---
 
 ## 🎯 For AI Agents
