@@ -20,7 +20,7 @@ def _get_platform() -> str:
         return "linux"
 
 
-def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
+def _handle_command(command: str, func, *args, **kwargs):
     start = time.time()
     try:
         result = func(*args, **kwargs)
@@ -30,7 +30,7 @@ def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
             data=result,
             duration_ms=duration_ms,
         )
-        response.print(json_mode)
+        response.print()
     except Exception as e:
         duration_ms = int((time.time() - start) * 1000)
         error = DesktopAgentError(
@@ -43,8 +43,8 @@ def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
             message=error.message,
             details=error.details,
             duration_ms=duration_ms,
-        )
-        response.print(json_mode)
+         )
+        response.print()
         raise sys.exit(error.exit_code())
 
 
@@ -52,7 +52,6 @@ def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
 def open(
     name: str = typer.Argument(..., help="Application name or path to open"),
     args: Optional[list[str]] = typer.Option(None, "--arg", "-a", help="Arguments to pass to the application"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Open an application by name or path."""
     def execute():
@@ -83,14 +82,11 @@ def open(
             )
 
         return {"application": name, "args": args_list}
-    _handle_command("app.open", execute, json)
+    _handle_command("app.open", execute)
 
 
 @app.command()
-def focus(
-    name: str = typer.Argument(..., help="Window title or application name to focus"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
-):
+def focus(name: str = typer.Argument(..., help="Window title or application name to focus")):
     """Focus on a window by title or application name."""
     def execute():
         current_platform = _get_platform()
@@ -179,13 +175,11 @@ def focus(
                         code=ErrorCode.WINDOW_NOT_FOUND,
                         message=f"Could not focus '{name}'. Install wmctrl or xdotool.",
                     )
-    _handle_command("app.focus", execute, json)
+    _handle_command("app.focus", execute)
 
 
 @app.command()
-def list(
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
-):
+def list():
     """List all visible windows."""
     def execute():
         current_platform = _get_platform()
@@ -257,7 +251,7 @@ def list(
                 )
 
         return {"windows": windows}
-    _handle_command("app.list", execute, json)
+    _handle_command("app.list", execute)
 
 
 import sys

@@ -39,11 +39,8 @@ class CommandResponse(BaseModel):
             error_msg = self.error.get("message", "Unknown error") if self.error else "Unknown error"
             return f"Error: {error_msg}"
 
-    def print(self, json_mode: bool = False) -> None:
-        if json_mode:
-            print(self.to_json())
-        else:
-            print(self.to_text())
+    def print(self) -> None:
+        print(self.to_json())
 
     @classmethod
     def success_response(

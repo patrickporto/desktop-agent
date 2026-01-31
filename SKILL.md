@@ -319,17 +319,12 @@ uvx desktop-agent mouse move --help
 - Keyboard commands are generally fast (< 100ms)
 - Screenshots depend on screen resolution and region size
 
-## JSON Output Mode
+## Output Format
 
-All commands support a `--json` flag for structured output, ideal for programmatic use by AI agents:
+All commands output structured JSON by default, ideal for programmatic use by AI agents:
 
 ```bash
-# Text output (default, human-readable)
 uvx desktop-agent mouse position
-# Output: Position: (960, 540)
-
-# JSON output (structured, machine-readable)
-uvx desktop-agent mouse position --json
 # Output: {"success": true, "command": "mouse.position", "timestamp": "2026-01-31T10:00:00Z", "duration_ms": 5, "data": {"position": {"x": 960, "y": 540}}}
 ```
 
@@ -382,11 +377,9 @@ All JSON responses follow this schema:
 | `timeout` | Operation timed out |
 | `unknown_error` | Unknown error |
 
-### JSON Output Examples
-
 **Mouse move:**
 ```bash
-uvx desktop-agent mouse move 960 540 --json
+uvx desktop-agent mouse move 960 540
 ```
 ```json
 {"success": true, "command": "mouse.move", "timestamp": "...", "duration_ms": 150, "data": {"x": 960, "y": 540, "duration": 0}, "error": null}
@@ -394,7 +387,7 @@ uvx desktop-agent mouse move 960 540 --json
 
 **Screen size:**
 ```bash
-uvx desktop-agent screen size --json
+uvx desktop-agent screen size
 ```
 ```json
 {"success": true, "command": "screen.size", "timestamp": "...", "duration_ms": 5, "data": {"size": {"width": 1920, "height": 1080}}, "error": null}
@@ -402,7 +395,7 @@ uvx desktop-agent screen size --json
 
 **Locate image:**
 ```bash
-uvx desktop-agent screen locate button.png --json
+uvx desktop-agent screen locate button.png
 ```
 ```json
 {"success": true, "command": "screen.locate", "timestamp": "...", "duration_ms": 250, "data": {"image_found": true, "bounding_box": {"left": 100, "top": 200, "width": 50, "height": 30, "center_x": 125, "center_y": 215}}, "error": null}
@@ -410,7 +403,7 @@ uvx desktop-agent screen locate button.png --json
 
 **List windows:**
 ```bash
-uvx desktop-agent app list --json
+uvx desktop-agent app list
 ```
 ```json
 {"success": true, "command": "app.list", "timestamp": "...", "duration_ms": 100, "data": {"windows": ["Untitled - Notepad", "Google Chrome", "Visual Studio Code"]}, "error": null}
@@ -418,7 +411,7 @@ uvx desktop-agent app list --json
 
 **Error example:**
 ```bash
-uvx desktop-agent screen locate missing.png --json
+uvx desktop-agent screen locate missing.png
 ```
 ```json
 {"success": false, "command": "screen.locate", "timestamp": "...", "duration_ms": 50, "data": null, "error": {"code": "image_not_found", "message": "Image file 'missing.png' not found", "details": {}, "recoverable": true}}
@@ -435,13 +428,9 @@ This section teaches AI agents how to use this skill effectively with optimal co
 **Recommended Initial Sequence:**
 ```bash
 # 1. Get screen dimensions to understand your workspace
-uvx desktop-agent screen size --json
-
-# 2. List open windows to understand available targets
-uvx desktop-agent app list --json
-
-# 3. Get current mouse position as reference
-uvx desktop-agent mouse position --json
+uvx desktop-agent screen size
+uvx desktop-agent app list
+uvx desktop-agent mouse position
 ```
 
 ### 📋 Recommended Command Sequences by Task
@@ -451,8 +440,8 @@ uvx desktop-agent mouse position --json
 ```bash
 # ✅ CORRECT: Open, wait, verify, then interact
 uvx desktop-agent app open notepad              # Step 1: Open app
-uvx desktop-agent app list --json               # Step 2: Verify it opened (check output)
-uvx desktop-agent app focus "Notepad"           # Step 3: Ensure focus
+uvx desktop-agent app list
+uvx desktop-agent app focus "Notepad"
 uvx desktop-agent keyboard write "Hello World"  # Step 4: Now safe to type
 
 # ❌ WRONG: Type immediately without verification
@@ -464,7 +453,7 @@ uvx desktop-agent keyboard write "Hello World"  # May type in wrong window!
 
 ```bash
 # ✅ CORRECT: Locate first, click if found
-uvx desktop-agent screen locate-center button.png --confidence 0.8 --json
+uvx desktop-agent screen locate-center button.png --confidence 0.8
 # Check if success=true and coordinates are valid
 uvx desktop-agent mouse click 125 215  # Use returned coordinates
 
@@ -476,12 +465,12 @@ uvx desktop-agent mouse click 125 215  # Might click wrong area!
 
 ```bash
 # ✅ CORRECT: Read screen text, then locate specific text
-uvx desktop-agent screen read-all-text --active --json     # See what's on screen
-uvx desktop-agent screen locate-text-coordinates "Save" --active --json
+uvx desktop-agent screen read-all-text --active
+uvx desktop-agent screen locate-text-coordinates "Save" --active
 # Use returned coordinates to click
 
 # For window-specific OCR:
-uvx desktop-agent screen locate-text-coordinates "OK" --window "Dialog Title" --json
+uvx desktop-agent screen locate-text-coordinates "OK" --window "Dialog Title"
 ```
 
 #### Fill a Form with Multiple Fields
@@ -516,7 +505,7 @@ uvx desktop-agent screen screenshot app.png --window "Google Chrome"
 uvx desktop-agent screen screenshot active.png --active
 
 # Full screen only when necessary (slower, larger file)
-uvx desktop-agent screen size --json
+uvx desktop-agent screen size
 uvx desktop-agent screen screenshot full.png
 ```
 
@@ -525,7 +514,7 @@ uvx desktop-agent screen screenshot full.png
 ```bash
 # ✅ CORRECT: Move to start, verify position, then drag
 uvx desktop-agent mouse move 100 200                 # Move to source
-uvx desktop-agent mouse position --json              # Verify position
+uvx desktop-agent mouse position              # Verify position
 uvx desktop-agent mouse drag 500 400 --duration 0.5  # Drag to destination
 
 # For precision, use slower duration
@@ -539,7 +528,7 @@ uvx desktop-agent mouse drag 500 400 --duration 1.0
 ```bash
 # Pattern: List windows, find closest match, retry
 uvx desktop-agent app focus "Chrome"             # Fails with window_not_found
-uvx desktop-agent app list --json                # See actual window titles
+uvx desktop-agent app list                # See actual window titles
 # Output shows: "Google Chrome - My Page"
 uvx desktop-agent app focus "Google Chrome"      # Use correct title
 ```
@@ -548,8 +537,8 @@ uvx desktop-agent app focus "Google Chrome"      # Use correct title
 
 ```bash
 # Pattern: Adjust confidence or take new screenshot
-uvx desktop-agent screen locate button.png --confidence 0.9 --json  # Fails
-uvx desktop-agent screen locate button.png --confidence 0.7 --json  # Try lower confidence
+uvx desktop-agent screen locate button.png --confidence 0.9
+uvx desktop-agent screen locate button.png --confidence 0.7
 # If still failing, capture current state for analysis
 uvx desktop-agent screen screenshot current.png --active
 ```
@@ -558,7 +547,7 @@ uvx desktop-agent screen screenshot current.png --active
 
 ```bash
 # Pattern: Verify coordinates are on screen
-uvx desktop-agent screen size --json             # Get screen bounds
+uvx desktop-agent screen size             # Get screen bounds
 uvx desktop-agent screen on-screen 1500 900      # Check if coords are valid
 uvx desktop-agent mouse move 1500 900            # Move first to visualize
 uvx desktop-agent mouse click                    # Then click at current position
@@ -618,7 +607,7 @@ uvx desktop-agent message confirm "This will delete all files. Continue?" --titl
 
 ```bash
 # ✅ RELIABLE: Parse structured JSON output
-uvx desktop-agent screen locate button.png --json
+uvx desktop-agent screen locate button.png
 # Parse: {"success": true, "data": {"center_x": 125, "center_y": 215}}
 
 # ❌ FRAGILE: Parse text output
@@ -630,10 +619,10 @@ uvx desktop-agent screen locate button.png
 
 ```bash
 # Multi-step file operation with validation
-uvx desktop-agent app list --json                           # Step 1: Verify app is open
-uvx desktop-agent screen locate-text-coordinates "File" --active --json  # Step 2: Find menu
-uvx desktop-agent mouse click <returned_x> <returned_y>     # Step 3: Click only if found
-uvx desktop-agent screen locate-text-coordinates "Save As" --active --json
+uvx desktop-agent app list
+uvx desktop-agent screen locate-text-coordinates "File" --active
+uvx desktop-agent mouse click <returned_x> <returned_y>
+uvx desktop-agent screen locate-text-coordinates "Save As" --active
 uvx desktop-agent mouse click <returned_x> <returned_y>
 ```
 
@@ -682,15 +671,15 @@ uvx desktop-agent keyboard hotkey "alt,f2"       # Run dialog (many DEs)
 ### 📊 Decision Tree: Choosing the Right Command
 
 ```
-Want to interact with an app?
+ Want to interact with an app?
 ├── App not running → `app open <name>`
 ├── App running but not focused → `app focus <name>` 
-└── Need to verify windows → `app list --json`
+└── Need to verify windows → `app list`
 
 Want to find a UI element?
-├── Have reference image → `screen locate-center <image> --json`
-├── Know the text label → `screen locate-text-coordinates "<text>" --json`
-└── Need to see all text → `screen read-all-text --active --json`
+├── Have reference image → `screen locate-center <image>`
+├── Know the text label → `screen locate-text-coordinates "<text>"`
+└── Need to see all text → `screen read-all-text --active`
 
 Want to click something?
 ├── Know exact coordinates → `mouse click <x> <y>`
@@ -712,4 +701,3 @@ Want to type something?
 4. **Validate before executing** (e.g., check if image exists on screen)
 5. **Provide user feedback** using message dialogs for important operations
 6. **Handle errors gracefully** - commands may fail if UI state changes
-7. **Use `--json` flag** for reliable parsing by AI agents

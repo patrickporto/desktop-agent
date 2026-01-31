@@ -31,7 +31,7 @@ def _get_window_region(window_name: Optional[str] = None, active: bool = False) 
         return None
 
 
-def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
+def _handle_command(command: str, func, *args, **kwargs):
     start = time.time()
     try:
         result = func(*args, **kwargs)
@@ -41,7 +41,7 @@ def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
             data=result,
             duration_ms=duration_ms,
         )
-        response.print(json_mode)
+        response.print()
     except Exception as e:
         duration_ms = int((time.time() - start) * 1000)
         error = DesktopAgentError(
@@ -55,7 +55,7 @@ def _handle_command(command: str, func, json_mode: bool, *args, **kwargs):
             details=error.details,
             duration_ms=duration_ms,
         )
-        response.print(json_mode)
+        response.print()
         raise sys.exit(error.exit_code())
 
 
@@ -65,7 +65,6 @@ def screenshot(
     region: str = typer.Option(None, "--region", "-r", help="Region as 'x,y,width,height'"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Target window title"),
     active: bool = typer.Option(False, "--active", "-a", help="Target active window"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Take a screenshot of the entire screen, a window, or a specific region."""
     def execute():
@@ -100,7 +99,7 @@ def screenshot(
             img = pyautogui.screenshot()
             img.save(filename)
             return {"filename": filename, "region": None}
-    _handle_command("screen.screenshot", execute, json)
+    _handle_command("screen.screenshot", execute)
 
 
 @app.command()
@@ -109,7 +108,6 @@ def locate(
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Locate an image on the screen or within a targeted window."""
     def execute():
@@ -136,7 +134,7 @@ def locate(
             }
         else:
             return {"image_found": False}
-    _handle_command("screen.locate", execute, json)
+    _handle_command("screen.locate", execute)
 
 
 @app.command()
@@ -145,7 +143,6 @@ def locate_center(
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Get the center coordinates of an image on the screen or within a window."""
     def execute():
@@ -162,14 +159,13 @@ def locate_center(
             return {"position": {"x": location.x, "y": location.y}}
         else:
             return {"image_found": False}
-    _handle_command("screen.locate_center", execute, json)
+    _handle_command("screen.locate_center", execute)
 
 
 @app.command()
 def pixel(
     x: int = typer.Argument(..., help="X coordinate"),
     y: int = typer.Argument(..., help="Y coordinate"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Get the RGB color of a pixel at specified coordinates."""
     def execute():
@@ -182,13 +178,11 @@ def pixel(
                 "hex": f"#{color[0]:02x}{color[1]:02x}{color[2]:02x}",
             }
         }
-    _handle_command("screen.pixel", execute, json)
+    _handle_command("screen.pixel", execute)
 
 
 @app.command()
-def size(
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
-):
+def size():
     """Get the screen size."""
     def execute():
         screen_size = pyautogui.size()
@@ -198,20 +192,19 @@ def size(
                 "height": screen_size.height,
             }
         }
-    _handle_command("screen.size", execute, json)
+    _handle_command("screen.size", execute)
 
 
 @app.command()
 def on_screen(
     x: int = typer.Argument(..., help="X coordinate"),
     y: int = typer.Argument(..., help="Y coordinate"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Check if coordinates are on the screen."""
     def execute():
         is_on_screen = pyautogui.onScreen(x, y)
         return {"on_screen": is_on_screen}
-    _handle_command("screen.on_screen", execute, json)
+    _handle_command("screen.on_screen", execute)
 
 
 _reader = None
@@ -255,7 +248,6 @@ def locate_text_coordinates(
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case sensitive search"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Locate text coordinates on screen, within a window, or in an image using OCR."""
     def execute():
@@ -313,7 +305,7 @@ def locate_text_coordinates(
             Path("temp_screenshot.png").unlink()
 
         return {"matches": matches}
-    _handle_command("screen.locate_text_coordinates", execute, json)
+    _handle_command("screen.locate_text_coordinates", execute)
 
 
 @app.command(name="read-all-text")
@@ -322,7 +314,6 @@ def read_all_text(
     lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Languages to use (comma-separated, default: system language + en)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Read from a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Read from the active window"),
-    json: bool = typer.Option(False, "--json", "-j", help="Output JSON format"),
 ):
     """Read all text from screen, a targeted window, or an image using OCR."""
     def execute():
@@ -376,7 +367,7 @@ def read_all_text(
             Path("temp_screenshot.png").unlink()
 
         return {"text_items": all_text}
-    _handle_command("screen.read_all_text", execute, json)
+    _handle_command("screen.read_all_text", execute)
 
 
 import sys
