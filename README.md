@@ -119,6 +119,27 @@ python main.py screen size
 
 # Verificar se coordenadas estão na tela
 python main.py screen on-screen 5000 5000
+
+# Buscar coordenadas de texto na tela usando OCR (busca parcial)
+python main.py screen locate-text-coordinates "OK"
+
+# Buscar texto em uma imagem específica
+python main.py screen locate-text-coordinates "Confirmar" --image screenshot.png
+
+# Busca case-sensitive
+python main.py screen locate-text-coordinates "Login" --case-sensitive
+
+# Ler todo o texto da tela
+python main.py screen read-all-text
+
+# Ler texto de uma imagem
+python main.py screen read-all-text --image captura.png
+
+# Especificar idiomas para OCR (padrão: pt,en)
+python main.py screen locate-text-coordinates "Button" --lang "en"
+
+# Saída em JSON para integração
+python main.py screen locate-text-coordinates "Enviar" --json
 ```
 
 ### 💬 Mensagens (`message`)
@@ -177,7 +198,7 @@ desktop-skill/
 │   ├── __init__.py
 │   ├── mouse.py        # Comandos de mouse
 │   ├── keyboard.py     # Comandos de teclado
-│   ├── screen.py       # Comandos de tela/screenshot
+│   ├── screen.py       # Comandos de tela/screenshot/OCR
 │   └── message.py      # Caixas de mensagem
 ├── pyproject.toml      # Configuração do projeto
 └── README.md           # Esta documentação
@@ -186,4 +207,5 @@ desktop-skill/
 ## Tecnologias
 
 - **PyAutoGUI**: Automação de GUI
+- **EasyOCR**: Reconhecimento óptico de caracteres
 - **Typer**: Framework CLI moderno

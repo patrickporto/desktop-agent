@@ -2,6 +2,9 @@
 import typer
 import pyautogui
 from pathlib import Path
+from typing import Optional
+import json
+import easyocr
 
 app = typer.Typer(help="Screen and screenshot commands")
 
@@ -93,3 +96,154 @@ def on_screen(
         typer.echo(f"({x}, {y}) is on screen")
     else:
         typer.echo(f"({x}, {y}) is NOT on screen")
+
+
+# OCR functionality
+_reader = None
+
+
+def get_reader(lang: list[str] = None):
+    """Get or create EasyOCR reader instance."""
+    global _reader
+    if _reader is None:
+        langs = lang or ['pt', 'en']
+        typer.echo(f"Initializing EasyOCR (languages: {', '.join(langs)})...")
+        _reader = easyocr.Reader(langs)
+    return _reader
+
+
+@app.command(name="locate-text-coordinates")
+def locate_text_coordinates(
+    search: str = typer.Argument(..., help="Text to search for (partial match)"),
+    image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
+    lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
+    case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case sensitive search"),
+):
+    """Locate text coordinates on screen or in image using OCR. Searches for partial text matches."""
+    # Get or take screenshot
+    if image:
+        if not Path(image).exists():
+            typer.echo(f"Error: Image file '{image}' not found", err=True)
+            raise typer.Exit(1)
+        image_path = image
+    else:
+        # Take screenshot
+        screenshot_path = "temp_screenshot.png"
+        img = pyautogui.screenshot()
+        img.save(screenshot_path)
+        image_path = screenshot_path
+        typer.echo(f"Screenshot taken: {screenshot_path}")
+
+    # Initialize reader
+    languages = lang.split(',')
+    reader = get_reader(languages)
+
+    # Perform OCR
+    typer.echo("Performing OCR...")
+    results = reader.readtext(image_path)
+
+    # Search for text
+    search_text = search if case_sensitive else search.lower()
+    matches = []
+
+    for (bbox, text, confidence) in results:
+        compare_text = text if case_sensitive else text.lower()
+        if search_text in compare_text:
+            # bbox is [[x1, y1], [x2, y2], [x3, y3], [x4, y4]]
+            top_left = bbox[0]
+            bottom_right = bbox[2]
+            
+            x1, y1 = int(top_left[0]), int(top_left[1])
+            x2, y2 = int(bottom_right[0]), int(bottom_right[1])
+            width = x2 - x1
+            height = y2 - y1
+            center_x = int((x1 + x2) / 2)
+            center_y = int((y1 + y2) / 2)
+            
+            match = {
+                "text": text,
+                "confidence": float(confidence),
+                "bbox": {
+                    "x": x1,
+                    "y": y1,
+                    "width": width,
+                    "height": height
+                },
+                "center": {
+                    "x": center_x,
+                    "y": center_y
+                }
+            }
+            matches.append(match)
+
+    # Output results
+    typer.echo(json.dumps(matches, indent=2))
+    # Cleanup temp screenshot
+    if not image and Path(screenshot_path).exists():
+        Path(screenshot_path).unlink()
+
+
+@app.command(name="read-all-text")
+def read_all_text(
+    image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
+    lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
+):
+    """Read all text from screen or image using OCR. Returns all detected text with their coordinates."""
+    # Get or take screenshot
+    if image:
+        if not Path(image).exists():
+            typer.echo(f"Error: Image file '{image}' not found", err=True)
+            raise typer.Exit(1)
+        image_path = image
+    else:
+        # Take screenshot
+        screenshot_path = "temp_screenshot.png"
+        img = pyautogui.screenshot()
+        img.save(screenshot_path)
+        image_path = screenshot_path
+        typer.echo(f"Screenshot taken: {screenshot_path}")
+
+    # Initialize reader
+    languages = lang.split(',')
+    reader = get_reader(languages)
+
+    # Perform OCR
+    typer.echo("Performing OCR...")
+    results = reader.readtext(image_path)
+
+    # Format results
+    all_text = []
+    for (bbox, text, confidence) in results:
+        top_left = bbox[0]
+        bottom_right = bbox[2]
+        
+        x1, y1 = int(top_left[0]), int(top_left[1])
+        x2, y2 = int(bottom_right[0]), int(bottom_right[1])
+        width = x2 - x1
+        height = y2 - y1
+        center_x = int((x1 + x2) / 2)
+        center_y = int((y1 + y2) / 2)
+        
+        item = {
+            "text": text,
+            "confidence": float(confidence),
+            "bbox": {
+                "x": x1,
+                "y": y1,
+                "width": width,
+                "height": height
+            },
+            "center": {
+                "x": center_x,
+                "y": center_y
+            }
+        }
+        all_text.append(item)
+
+    # Output results
+    typer.echo(json.dumps(all_text, indent=2))
+
+    # Cleanup temp screenshot
+    if not image and Path(screenshot_path).exists():
+        Path(screenshot_path).unlink()
+
