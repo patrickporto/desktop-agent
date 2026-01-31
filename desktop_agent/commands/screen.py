@@ -153,16 +153,49 @@ def on_screen(
 
 # OCR functionality
 _reader = None
+_reader_langs = None
+
+
+def _get_system_language() -> str:
+    """Detect the system language in a cross-platform way.
+    
+    Returns the ISO 639-1 language code (e.g., 'en', 'pt', 'es').
+    Falls back to 'en' if detection fails.
+    """
+    import locale
+    try:
+        # Get system locale (works on Windows, Linux, macOS)
+        system_locale = locale.getdefaultlocale()[0]
+        if system_locale:
+            # Extract language code (e.g., 'pt_BR' -> 'pt', 'en_US' -> 'en')
+            lang_code = system_locale.split('_')[0].lower()
+            return lang_code
+    except Exception:
+        pass
+    return 'en'
+
+
+def _get_default_languages() -> list[str]:
+    """Get default languages for OCR based on system locale.
+    
+    Returns a list with the system language and English (if different).
+    """
+    system_lang = _get_system_language()
+    if system_lang == 'en':
+        return ['en']
+    return [system_lang, 'en']
 
 
 def get_reader(lang: list[str] = None):
     """Get or create EasyOCR reader instance."""
-    global _reader
-    if _reader is None:
+    global _reader, _reader_langs
+    langs = lang or _get_default_languages()
+    # Reinitialize if languages changed
+    if _reader is None or set(langs) != set(_reader_langs or []):
         import easyocr
-        langs = lang or ['pt', 'en']
         typer.echo(f"Initializing EasyOCR (languages: {', '.join(langs)})...")
         _reader = easyocr.Reader(langs)
+        _reader_langs = langs
     return _reader
 
 
@@ -170,7 +203,7 @@ def get_reader(lang: list[str] = None):
 def locate_text_coordinates(
     search: str = typer.Argument(..., help="Text to search for (partial match)"),
     image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
-    lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
+    lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Languages to use (comma-separated, default: system language + en)"),
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case sensitive search"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
@@ -196,7 +229,7 @@ def locate_text_coordinates(
         typer.echo(f"Screenshot taken: {screenshot_path}")
 
     # Initialize reader
-    languages = lang.split(',')
+    languages = lang.split(',') if lang else None
     reader = get_reader(languages)
 
     # Perform OCR
@@ -247,7 +280,7 @@ def locate_text_coordinates(
 @app.command(name="read-all-text")
 def read_all_text(
     image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
-    lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
+    lang: Optional[str] = typer.Option(None, "--lang", "-l", help="Languages to use (comma-separated, default: system language + en)"),
     window: Optional[str] = typer.Option(None, "--window", "-w", help="Read from a specific window"),
     active: bool = typer.Option(False, "--active", "-a", help="Read from the active window"),
 ):
@@ -272,7 +305,7 @@ def read_all_text(
         typer.echo(f"Screenshot taken: {screenshot_path}")
 
     # Initialize reader
-    languages = lang.split(',')
+    languages = lang.split(',') if lang else None
     reader = get_reader(languages)
 
     # Perform OCR
