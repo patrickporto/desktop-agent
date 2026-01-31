@@ -1,31 +1,48 @@
 # Project Context
 
 ## Purpose
-[Describe your project's purpose and goals]
+Desktop Control Skill is an AI agent skill that provides desktop automation capabilities through PyAutoGUI. It allows AI agents to control the mouse, keyboard, take screenshots, and interact with the desktop environment programmatically.
 
 ## Tech Stack
-- [List your primary technologies]
-- [e.g., TypeScript, React, Node.js]
+- Python 3.12+
+- PyAutoGUI (desktop automation library)
+- Typer (CLI framework)
+- UV (Python package installer and manager)
 
 ## Project Conventions
 
 ### Code Style
-[Describe your code style preferences, formatting rules, and naming conventions]
+- Use descriptive function and variable names
+- Include docstrings for all public functions
+- Follow PEP 8 naming conventions
+- Type hints where applicable
 
 ### Architecture Patterns
-[Document your architectural decisions and patterns]
+- Modular command organization: commands organized by category (mouse, keyboard, screen, message)
+- CLI structure: Main entry point delegates to sub-applications
+- Each command module is a Typer app registered with the main app
 
 ### Testing Strategy
-[Explain your testing approach and requirements]
+- Manual verification of commands
+- Integration testing through actual CLI invocation
+- Validation of help text and command discovery
 
 ### Git Workflow
-[Describe your branching strategy and commit conventions]
+- Standard Git workflow with feature branches
+- Clear commit messages describing changes
 
 ## Domain Context
-[Add domain-specific knowledge that AI assistants need to understand]
+- **Desktop Automation**: Commands interact with OS-level GUI elements
+- **AI Agent Integration**: Designed to be easily discoverable and usable by AI agents
+- **Cross-platform**: Primary target is Windows, but PyAutoGUI supports macOS and Linux
 
 ## Important Constraints
-[List any technical, business, or regulatory constraints]
+- Requires Python 3.12+
+- PyAutoGUI has a fail-safe feature (moving mouse to screen corner aborts)
+- Commands may fail if UI state changes between invocation and execution
+- Screenshot and image location features depend on screen resolution
 
 ## External Dependencies
-[Document key external services, APIs, or systems]
+- PyAutoGUI: Core automation library
+- Typer: CLI framework
+- UV: Package management and distribution
