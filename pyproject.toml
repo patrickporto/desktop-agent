@@ -1,0 +1,10 @@
+[project]
+name = "desktop-skill"
+version = "0.1.0"
+description = "Desktop skill to control mouse and keyboard"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyautogui>=0.9.54",
+    "typer>=0.21.1",
+]
