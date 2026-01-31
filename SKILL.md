@@ -424,6 +424,286 @@ uvx desktop-agent screen locate missing.png --json
 {"success": false, "command": "screen.locate", "timestamp": "...", "duration_ms": 50, "data": null, "error": {"code": "image_not_found", "message": "Image file 'missing.png' not found", "details": {}, "recoverable": true}}
 ```
 
+## Effective Usage Guide for AI Agents
+
+This section teaches AI agents how to use this skill effectively with optimal command sequences and best practices.
+
+### 🎯 Core Strategy: Observe First, Then Act
+
+**Always** understand the current state before performing actions. This avoids clicking wrong coordinates or typing in the wrong window.
+
+**Recommended Initial Sequence:**
+```bash
+# 1. Get screen dimensions to understand your workspace
+uvx desktop-agent screen size --json
+
+# 2. List open windows to understand available targets
+uvx desktop-agent app list --json
+
+# 3. Get current mouse position as reference
+uvx desktop-agent mouse position --json
+```
+
+### 📋 Recommended Command Sequences by Task
+
+#### Open and Interact with Application
+
+```bash
+# ✅ CORRECT: Open, wait, verify, then interact
+uvx desktop-agent app open notepad              # Step 1: Open app
+uvx desktop-agent app list --json               # Step 2: Verify it opened (check output)
+uvx desktop-agent app focus "Notepad"           # Step 3: Ensure focus
+uvx desktop-agent keyboard write "Hello World"  # Step 4: Now safe to type
+
+# ❌ WRONG: Type immediately without verification
+uvx desktop-agent app open notepad
+uvx desktop-agent keyboard write "Hello World"  # May type in wrong window!
+```
+
+#### Find and Click UI Element (Image-Based)
+
+```bash
+# ✅ CORRECT: Locate first, click if found
+uvx desktop-agent screen locate-center button.png --confidence 0.8 --json
+# Check if success=true and coordinates are valid
+uvx desktop-agent mouse click 125 215  # Use returned coordinates
+
+# ❌ WRONG: Click without verifying element exists
+uvx desktop-agent mouse click 125 215  # Might click wrong area!
+```
+
+#### Find and Click UI Element (Text-Based with OCR)
+
+```bash
+# ✅ CORRECT: Read screen text, then locate specific text
+uvx desktop-agent screen read-all-text --active --json     # See what's on screen
+uvx desktop-agent screen locate-text-coordinates "Save" --active --json
+# Use returned coordinates to click
+
+# For window-specific OCR:
+uvx desktop-agent screen locate-text-coordinates "OK" --window "Dialog Title" --json
+```
+
+#### Fill a Form with Multiple Fields
+
+```bash
+# ✅ CORRECT: Click each field explicitly before typing
+uvx desktop-agent mouse click 300 200           # Click first field
+uvx desktop-agent keyboard write "John Doe"
+uvx desktop-agent mouse click 300 250           # Click second field (more reliable)
+uvx desktop-agent keyboard write "john@example.com"
+uvx desktop-agent mouse click 300 300           # Click third field
+uvx desktop-agent keyboard write "555-1234"
+
+# OR use Tab navigation (less reliable if field order changes)
+uvx desktop-agent mouse click 300 200
+uvx desktop-agent keyboard write "John Doe"
+uvx desktop-agent keyboard press tab
+uvx desktop-agent keyboard write "john@example.com"
+uvx desktop-agent keyboard press tab
+uvx desktop-agent keyboard write "555-1234"
+uvx desktop-agent keyboard press enter          # Submit
+```
+
+#### Take Targeted Screenshots for Analysis
+
+```bash
+# ✅ CORRECT: Screenshot specific windows for faster processing
+uvx desktop-agent app list --json                           # Find exact window title
+uvx desktop-agent screen screenshot app.png --window "Google Chrome"
+
+# For active window only
+uvx desktop-agent screen screenshot active.png --active
+
+# Full screen only when necessary (slower, larger file)
+uvx desktop-agent screen size --json
+uvx desktop-agent screen screenshot full.png
+```
+
+#### Safe Drag and Drop
+
+```bash
+# ✅ CORRECT: Move to start, verify position, then drag
+uvx desktop-agent mouse move 100 200                 # Move to source
+uvx desktop-agent mouse position --json              # Verify position
+uvx desktop-agent mouse drag 500 400 --duration 0.5  # Drag to destination
+
+# For precision, use slower duration
+uvx desktop-agent mouse drag 500 400 --duration 1.0
+```
+
+### 🔄 Error Recovery Patterns
+
+#### When Window Not Found
+
+```bash
+# Pattern: List windows, find closest match, retry
+uvx desktop-agent app focus "Chrome"             # Fails with window_not_found
+uvx desktop-agent app list --json                # See actual window titles
+# Output shows: "Google Chrome - My Page"
+uvx desktop-agent app focus "Google Chrome"      # Use correct title
+```
+
+#### When Image Not Found
+
+```bash
+# Pattern: Adjust confidence or take new screenshot
+uvx desktop-agent screen locate button.png --confidence 0.9 --json  # Fails
+uvx desktop-agent screen locate button.png --confidence 0.7 --json  # Try lower confidence
+# If still failing, capture current state for analysis
+uvx desktop-agent screen screenshot current.png --active
+```
+
+#### When Click Seems to Miss
+
+```bash
+# Pattern: Verify coordinates are on screen
+uvx desktop-agent screen size --json             # Get screen bounds
+uvx desktop-agent screen on-screen 1500 900      # Check if coords are valid
+uvx desktop-agent mouse move 1500 900            # Move first to visualize
+uvx desktop-agent mouse click                    # Then click at current position
+```
+
+### ⚡ Performance Optimization
+
+#### Minimize Screenshots
+
+```bash
+# ✅ GOOD: Screenshot only the region you need
+uvx desktop-agent screen screenshot button_area.png --region "100,200,200,100"
+
+# ✅ GOOD: Screenshot specific window instead of full screen  
+uvx desktop-agent screen screenshot chrome.png --window "Google Chrome"
+
+# ❌ SLOW: Full screen capture when you only need a small area
+uvx desktop-agent screen screenshot full.png
+```
+
+#### Batch Keyboard Input
+
+```bash
+# ✅ FASTER: Write entire text at once
+uvx desktop-agent keyboard write "This is a complete sentence with all the text."
+
+# ❌ SLOWER: Multiple write commands
+uvx desktop-agent keyboard write "This is "
+uvx desktop-agent keyboard write "a complete "
+uvx desktop-agent keyboard write "sentence."
+```
+
+#### Use Hotkeys Over Mouse When Possible
+
+```bash
+# ✅ FASTER: Use keyboard shortcuts
+uvx desktop-agent keyboard hotkey "ctrl,s"       # Save
+uvx desktop-agent keyboard hotkey "ctrl,a"       # Select all
+uvx desktop-agent keyboard hotkey "ctrl,shift,s" # Save as
+
+# ❌ SLOWER: Navigate menu with mouse
+uvx desktop-agent mouse click 50 30              # Click File menu
+uvx desktop-agent mouse click 60 80              # Click Save option
+```
+
+### 🛡️ Defensive Programming Patterns
+
+#### Always Verify Critical Actions
+
+```bash
+# Before destructive action, confirm with user
+uvx desktop-agent message confirm "This will delete all files. Continue?" --title "Warning"
+# Check output: if "Cancel" was clicked, abort operation
+```
+
+#### Use JSON Mode for Reliable Parsing
+
+```bash
+# ✅ RELIABLE: Parse structured JSON output
+uvx desktop-agent screen locate button.png --json
+# Parse: {"success": true, "data": {"center_x": 125, "center_y": 215}}
+
+# ❌ FRAGILE: Parse text output
+uvx desktop-agent screen locate button.png
+# Parse: "Found at: Box(left=100, top=200, width=50, height=30)"
+```
+
+#### Validate Before Multi-Step Operations
+
+```bash
+# Multi-step file operation with validation
+uvx desktop-agent app list --json                           # Step 1: Verify app is open
+uvx desktop-agent screen locate-text-coordinates "File" --active --json  # Step 2: Find menu
+uvx desktop-agent mouse click <returned_x> <returned_y>     # Step 3: Click only if found
+uvx desktop-agent screen locate-text-coordinates "Save As" --active --json
+uvx desktop-agent mouse click <returned_x> <returned_y>
+```
+
+### 🎮 Platform-Specific Considerations
+
+#### Windows
+
+```bash
+# Common Windows shortcuts
+uvx desktop-agent keyboard hotkey "win,d"        # Show desktop
+uvx desktop-agent keyboard hotkey "win,e"        # Open Explorer
+uvx desktop-agent keyboard hotkey "alt,tab"      # Switch windows
+uvx desktop-agent keyboard hotkey "win,r"        # Run dialog
+
+# Open apps by name
+uvx desktop-agent app open notepad
+uvx desktop-agent app open calc
+uvx desktop-agent app open mspaint
+```
+
+#### macOS
+
+```bash
+# Common macOS shortcuts (use 'command' for Cmd key)
+uvx desktop-agent keyboard hotkey "command,space"   # Spotlight
+uvx desktop-agent keyboard hotkey "command,tab"     # App switcher
+uvx desktop-agent keyboard hotkey "command,q"       # Quit app
+uvx desktop-agent keyboard hotkey "command,shift,3" # Screenshot
+
+# Open apps
+uvx desktop-agent app open "Safari"
+uvx desktop-agent app open "TextEdit"
+```
+
+#### Linux
+
+```bash
+# Open apps (uses xdg-open or direct command)
+uvx desktop-agent app open firefox
+uvx desktop-agent app open gedit
+
+# Common shortcuts may vary by DE
+uvx desktop-agent keyboard hotkey "alt,f2"       # Run dialog (many DEs)
+```
+
+### 📊 Decision Tree: Choosing the Right Command
+
+```
+Want to interact with an app?
+├── App not running → `app open <name>`
+├── App running but not focused → `app focus <name>` 
+└── Need to verify windows → `app list --json`
+
+Want to find a UI element?
+├── Have reference image → `screen locate-center <image> --json`
+├── Know the text label → `screen locate-text-coordinates "<text>" --json`
+└── Need to see all text → `screen read-all-text --active --json`
+
+Want to click something?
+├── Know exact coordinates → `mouse click <x> <y>`
+├── Need to find first → Use locate commands above, then click returned coords
+└── Not sure if on screen → `screen on-screen <x> <y>` first
+
+Want to type something?
+├── Regular text → `keyboard write "<text>"`
+├── Keyboard shortcut → `keyboard hotkey "<key1>,<key2>"`
+├── Single key press → `keyboard press <key>`
+└── Multiple of same key → `keyboard press <key> --presses N`
+```
+
 ## Integration Tips for AI Agents
 
 1. **Always check screen size first** when working with absolute coordinates
