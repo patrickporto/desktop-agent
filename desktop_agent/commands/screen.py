@@ -4,7 +4,6 @@ import pyautogui
 from pathlib import Path
 from typing import Optional
 import json
-import easyocr
 
 app = typer.Typer(help="Screen and screenshot commands")
 
@@ -106,6 +105,7 @@ def get_reader(lang: list[str] = None):
     """Get or create EasyOCR reader instance."""
     global _reader
     if _reader is None:
+        import easyocr
         langs = lang or ['pt', 'en']
         typer.echo(f"Initializing EasyOCR (languages: {', '.join(langs)})...")
         _reader = easyocr.Reader(langs)

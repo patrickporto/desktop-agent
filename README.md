@@ -192,15 +192,30 @@ desktop-agent message prompt "Enter your name:"
 desktop-agent message password "Enter your password:"
 ```
 
+### 📱 Applications (`app`)
+
+```bash
+# Open an application (cross-platform)
+desktop-agent app open notepad
+desktop-agent app open "Google Chrome"
+
+# Open with arguments
+desktop-agent app open chrome --arg "https://google.com"
+
+# Focus on a window by title
+desktop-agent app focus "Untitled - Notepad"
+
+# List all visible windows
+desktop-agent app list
+```
+
 ## Automation Examples
 
 ### Open Notepad and write
 
 ```bash
-desktop-agent keyboard hotkey "win,r"
-desktop-agent keyboard write "notepad"
-desktop-agent keyboard press enter
-# Wait for notepad to open...
+desktop-agent app open notepad
+desktop-agent app focus notepad
 desktop-agent keyboard write "Hello from Desktop Skill!"
 ```
 

@@ -23,7 +23,7 @@ dependencies = [
 ]
 
 [project.scripts]
-desktop-agent = "desktop_agent:app"
+desktop-agent = "desktop_agent:app_cli"
 
 [build-system]
 requires = ["hatchling"]

@@ -24,6 +24,7 @@ uvx desktop-agent <category> <command> [arguments] [options]
 - `keyboard` - Keyboard input
 - `screen` - Screenshots and screen analysis
 - `message` - User dialogs
+- `app` - Application control (open, focus, list windows)
 
 ## Available Commands
 
@@ -169,20 +170,52 @@ uvx desktop-agent message confirm "Continue with operation?"
 uvx desktop-agent message prompt "Enter your name:"
 ```
 
+### 📱 Application Control (`app`)
+
+Control applications across Windows, macOS, and Linux.
+
+```bash
+# Open an application by name
+uvx desktop-agent app open <name> [--arg ARGS...]
+
+# Focus on a window by title/name
+uvx desktop-agent app focus <name>
+
+# List all visible windows
+uvx desktop-agent app list
+```
+
+**Examples:**
+```bash
+# Windows: Open Notepad
+uvx desktop-agent app open notepad
+
+# Windows: Open Chrome with a URL
+uvx desktop-agent app open "chrome" --arg "https://google.com"
+
+# macOS: Open Safari
+uvx desktop-agent app open "Safari"
+
+# Focus on a specific window
+uvx desktop-agent app focus "Untitled - Notepad"
+
+# List all open windows
+uvx desktop-agent app list
+```
+
 ## Common Automation Workflows
 
 ### Workflow 1: Open Application and Type
 
 ```bash
-# Open Run dialog
-uvx desktop-agent keyboard hotkey "win,r"
+# Open notepad directly (cross-platform)
+uvx desktop-agent app open notepad
 
-# Wait for dialog to open (agent should add delay)
-# Type application name
-uvx desktop-agent keyboard write "notepad"
+# Wait for app to open, then focus it
+uvx desktop-agent app focus notepad
 
-# Press Enter
-uvx desktop-agent keyboard press enter
+# Type some text
+uvx desktop-agent keyboard write "Hello from Desktop Skill!"
 ```
 
 ### Workflow 2: Screenshot + Analysis
