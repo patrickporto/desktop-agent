@@ -108,36 +108,36 @@ uvx desktop-agent keyboard press enter --presses 3
 
 ### 🖼️ Screen & Screenshots (`screen`)
 
+Capture screenshots and analyze screen content. Supports targeting specific windows.
+
+```bash
 # Take screenshot
-uvx desktop-agent screen screenshot <filename> [--region "x,y,width,height"]
+uvx desktop-agent screen screenshot <filename> [--region "x,y,width,height"] [--window <title>] [--active]
 
-# Locate image on screen
-uvx desktop-agent screen locate <image_path> [--confidence 0.0-1.0]
-uvx desktop-agent screen locate-center <image_path> [--confidence 0.0-1.0]
+# Locate image on screen or within window
+uvx desktop-agent screen locate <image_path> [--confidence 0.0-1.0] [--window <title>] [--active]
+uvx desktop-agent screen locate-center <image_path> [--confidence 0.0-1.0] [--window <title>] [--active]
 
-# Get pixel color at coordinates
+# Locate text using OCR within window
+uvx desktop-agent screen locate-text-coordinates <text> [--window <title>] [--active]
+uvx desktop-agent screen read-all-text [--window <title>] [--active]
+
+# Utility commands
 uvx desktop-agent screen pixel <x> <y>
-
-# Get screen dimensions
 uvx desktop-agent screen size
-
-# Check if coordinates are valid
 uvx desktop-agent screen on-screen <x> <y>
 ```
 
 **Examples:**
 ```bash
-# Full screenshot
-uvx desktop-agent screen screenshot desktop.png
+# Screenshot of active window
+uvx desktop-agent screen screenshot active.png --active
 
-# Screenshot of specific region
-uvx desktop-agent screen screenshot region.png --region "100,100,800,600"
+# Screenshot of a specific application
+uvx desktop-agent screen screenshot chrome.png --window "Google Chrome"
 
-# Find button on screen
-uvx desktop-agent screen locate-center button.png --confidence 0.9
-
-# Get color at cursor position
-uvx desktop-agent screen pixel 500 500
+# Locate image within Notepad
+uvx desktop-agent screen locate-center button.png --window "Notepad"
 ```
 
 ### 💬 Message Dialogs (`message`)

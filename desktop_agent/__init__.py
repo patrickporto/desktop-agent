@@ -19,5 +19,5 @@ app_cli.add_typer(app.app, name="app")
 @app_cli.command()
 def version():
     """Show version information."""
-    typer.echo("desktop-agent v1.0.0")
+    typer.echo("desktop-agent v1.1.0")
 

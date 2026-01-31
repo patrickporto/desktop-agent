@@ -136,29 +136,26 @@ desktop-agent keyboard keyup shift
 ### 🖼️ Screen (`screen`)
 
 ```bash
-# Capture screenshot
+# Capture screenshot (full screen)
 desktop-agent screen screenshot my_screen.png
+
+# Take screenshot of active window
+desktop-agent screen screenshot active_window.png --active
+
+# Take screenshot of specific window
+desktop-agent screen screenshot notepad.png --window "Notepad"
 
 # Screenshot of specific region (x,y,width,height)
 desktop-agent screen screenshot region.png --region "100,100,500,400"
 
-# Locate image on screen
-desktop-agent screen locate image.png
+# Locate image within active window
+desktop-agent screen locate button.png --active
 
-# Locate center of image
+# Locate center of image on screen
 desktop-agent screen locate-center button.png --confidence 0.8
 
-# Get pixel color
-desktop-agent screen pixel 100 200
-
-# Get screen size
-desktop-agent screen size
-
-# Check if coordinates are on screen
-desktop-agent screen on-screen 5000 5000
-
-# Find text coordinates on screen using OCR (partial search)
-desktop-agent screen locate-text-coordinates "OK"
+# Find text coordinates within active window
+desktop-agent screen locate-text-coordinates "OK" --active
 
 # Find text in specific image
 desktop-agent screen locate-text-coordinates "Confirm" --image screenshot.png

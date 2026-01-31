@@ -4,39 +4,87 @@ import pyautogui
 from pathlib import Path
 from typing import Optional
 import json
+import pywinctl
 
 app = typer.Typer(help="Screen and screenshot commands")
+
+
+def _get_window_region(window_name: Optional[str] = None, active: bool = False) -> Optional[tuple[int, int, int, int]]:
+    """Get the region of a specific or active window using PyWinCtl."""
+    try:
+        if active:
+            window = pywinctl.getActiveWindow()
+            if not window:
+                typer.echo("Error: No active window found", err=True)
+                return None
+        elif window_name:
+            windows = pywinctl.getWindowsWithTitle(window_name)
+            if not windows:
+                typer.echo(f"Error: Window with title '{window_name}' not found", err=True)
+                return None
+            window = windows[0]
+        else:
+            return None
+
+        return (int(window.left), int(window.top), int(window.width), int(window.height))
+    except Exception as e:
+        typer.echo(f"Error getting window region: {e}", err=True)
+        return None
 
 
 @app.command()
 def screenshot(
     filename: str = typer.Argument("screenshot.png", help="Output filename"),
     region: str = typer.Option(None, "--region", "-r", help="Region as 'x,y,width,height'"),
+    window: Optional[str] = typer.Option(None, "--window", "-w", help="Target window title"),
+    active: bool = typer.Option(False, "--active", "-a", help="Target active window"),
 ):
-    """Take a screenshot of the entire screen or a region."""
+    """Take a screenshot of the entire screen, a window, or a specific region."""
+    target_region = None
+
+    # Determine region from window targeting
+    window_region = _get_window_region(window, active)
+    if window_region:
+        target_region = window_region
+        typer.echo(f"Targeting window region: {target_region}")
+
+    # Manual region override
     if region:
         try:
-            x, y, width, height = map(int, region.split(","))
-            img = pyautogui.screenshot(region=(x, y, width, height))
-            img.save(filename)
-            typer.echo(f"Screenshot saved to {filename} (region: {region})")
+            target_region = tuple(map(int, region.split(",")))
+            typer.echo(f"Using manual region override: {target_region}")
         except ValueError:
             typer.echo("Error: Region must be in format 'x,y,width,height'", err=True)
             raise typer.Exit(1)
-    else:
-        img = pyautogui.screenshot()
-        img.save(filename)
-        typer.echo(f"Screenshot saved to {filename}")
+
+    try:
+        if target_region:
+            img = pyautogui.screenshot(region=target_region)
+            img.save(filename)
+            typer.echo(f"Screenshot saved to {filename} (region: {target_region})")
+        else:
+            img = pyautogui.screenshot()
+            img.save(filename)
+            typer.echo(f"Screenshot saved to {filename}")
+    except Exception as e:
+        typer.echo(f"Error taking screenshot: {e}", err=True)
+        raise typer.Exit(1)
 
 
 @app.command()
 def locate(
     image: str = typer.Argument(..., help="Path to image to locate"),
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
+    window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
+    active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
 ):
-    """Locate an image on the screen."""
+    """Locate an image on the screen or within a targeted window."""
+    region = _get_window_region(window, active)
+    if region:
+        typer.echo(f"Searching within window region: {region}")
+
     try:
-        location = pyautogui.locateOnScreen(image, confidence=confidence)
+        location = pyautogui.locateOnScreen(image, confidence=confidence, region=region)
         if location:
             typer.echo(f"Found at: x={location.left}, y={location.top}, width={location.width}, height={location.height}")
         else:
@@ -52,10 +100,16 @@ def locate(
 def locate_center(
     image: str = typer.Argument(..., help="Path to image to locate"),
     confidence: float = typer.Option(0.9, "--confidence", "-c", help="Match confidence (0.0-1.0)"),
+    window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
+    active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
 ):
-    """Get the center coordinates of an image on the screen."""
+    """Get the center coordinates of an image on the screen or within a window."""
+    region = _get_window_region(window, active)
+    if region:
+        typer.echo(f"Searching within window region: {region}")
+
     try:
-        location = pyautogui.locateCenterOnScreen(image, confidence=confidence)
+        location = pyautogui.locateCenterOnScreen(image, confidence=confidence, region=region)
         if location:
             typer.echo(f"Center at: ({location.x}, {location.y})")
         else:
@@ -118,8 +172,10 @@ def locate_text_coordinates(
     image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
     lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
     case_sensitive: bool = typer.Option(False, "--case-sensitive", "-c", help="Case sensitive search"),
+    window: Optional[str] = typer.Option(None, "--window", "-w", help="Search within a specific window"),
+    active: bool = typer.Option(False, "--active", "-a", help="Search within the active window"),
 ):
-    """Locate text coordinates on screen or in image using OCR. Searches for partial text matches."""
+    """Locate text coordinates on screen, within a window, or in an image using OCR."""
     # Get or take screenshot
     if image:
         if not Path(image).exists():
@@ -127,9 +183,14 @@ def locate_text_coordinates(
             raise typer.Exit(1)
         image_path = image
     else:
+        # Check for window targeting
+        region = _get_window_region(window, active)
+        if region:
+            typer.echo(f"Taking screenshot of window region: {region}")
+
         # Take screenshot
         screenshot_path = "temp_screenshot.png"
-        img = pyautogui.screenshot()
+        img = pyautogui.screenshot(region=region)
         img.save(screenshot_path)
         image_path = screenshot_path
         typer.echo(f"Screenshot taken: {screenshot_path}")
@@ -187,8 +248,10 @@ def locate_text_coordinates(
 def read_all_text(
     image: Optional[str] = typer.Option(None, "--image", "-i", help="Path to image (if not provided, takes screenshot)"),
     lang: str = typer.Option("pt,en", "--lang", "-l", help="Languages to use (comma-separated)"),
+    window: Optional[str] = typer.Option(None, "--window", "-w", help="Read from a specific window"),
+    active: bool = typer.Option(False, "--active", "-a", help="Read from the active window"),
 ):
-    """Read all text from screen or image using OCR. Returns all detected text with their coordinates."""
+    """Read all text from screen, a targeted window, or an image using OCR."""
     # Get or take screenshot
     if image:
         if not Path(image).exists():
@@ -196,9 +259,14 @@ def read_all_text(
             raise typer.Exit(1)
         image_path = image
     else:
+        # Check for window targeting
+        region = _get_window_region(window, active)
+        if region:
+            typer.echo(f"Taking screenshot of window region: {region}")
+
         # Take screenshot
         screenshot_path = "temp_screenshot.png"
-        img = pyautogui.screenshot()
+        img = pyautogui.screenshot(region=region)
         img.save(screenshot_path)
         image_path = screenshot_path
         typer.echo(f"Screenshot taken: {screenshot_path}")
