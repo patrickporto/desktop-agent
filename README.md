@@ -11,201 +11,206 @@ Control mouse, keyboard, and screen programmatically through a simple CLI interf
 This project is packaged as an **AI Agent Skill**. To use it:
 
 1. **Read the skill documentation**: [SKILL.md](SKILL.md)
-2. **Install the skill**: Run `python scripts/install.py`
-3. **Invoke commands**: Use `python main.py <category> <command>`
+2. **Install the CLI**: Use `pip install desktop-agent` or `pipx install desktop-agent`
+3. **Invoke commands**: Use `desktop-agent <category> <command>`
 
 **Quick Reference for Agents:**
 - All commands documented in [SKILL.md](SKILL.md)
 - Practical examples in [examples/automation_examples.md](examples/automation_examples.md)
-- Help system: `python main.py --help`
+- Help system: `desktop-agent --help`
+- All commands return JSON output by default
 
 ---
 
 ## 📦 Installation
 
-### Quick Install (Recommended)
+### Using pipx (Recommended)
 
 ```bash
-# Clone or download this repository
-cd desktop-skill
-
-# Run installation script
-python scripts/install.py
+pipx install desktop-agent
 ```
 
-### Manual Install
+### Using pip
+
+```bash
+pip install desktop-agent
+```
+
+### Run without installing (using uvx)
+
+```bash
+uvx desktop-agent
+```
 
 
-## Uso
+## Usage
 
-A CLI está organizada em categorias de comandos:
+The CLI is organized into command categories:
 
 ### 🖱️ Mouse (`mouse`)
 
 ```bash
-# Mover mouse para coordenadas
-python main.py mouse move 100 200
+# Move mouse to coordinates
+desktop-agent mouse move 100 200
 
-# Mover com duração (animação)
-python main.py mouse move 100 200 --duration 1.0
+# Move with duration (animation)
+desktop-agent mouse move 100 200 --duration 1.0
 
-# Clicar na posição atual
-python main.py mouse click
+# Click at current position
+desktop-agent mouse click
 
-# Clicar em coordenadas específicas
-python main.py mouse click 500 500
+# Click at specific coordinates
+desktop-agent mouse click 500 500
 
-# Clique direito
-python main.py mouse right-click
+# Right click
+desktop-agent mouse right-click
 
-# Duplo clique
-python main.py mouse double-click 300 400
+# Double click
+desktop-agent mouse double-click 300 400
 
-# Arrastar para coordenadas
-python main.py mouse drag 200 300
+# Drag to coordinates
+desktop-agent mouse drag 200 300
 
-# Rolar tela (positivo = cima, negativo = baixo)
-python main.py mouse scroll 5
-python main.py mouse scroll -3
+# Scroll (positive = up, negative = down)
+desktop-agent mouse scroll 5
+desktop-agent mouse scroll -3
 
-# Obter posição atual do mouse
-python main.py mouse position
+# Get current mouse position
+desktop-agent mouse position
 ```
 
-### ⌨️ Teclado (`keyboard`)
+### ⌨️ Keyboard (`keyboard`)
 
 ```bash
-# Escrever texto
-python main.py keyboard write "Hello World"
+# Write text
+desktop-agent keyboard write "Hello World"
 
-# Escrever com intervalo entre teclas
-python main.py keyboard write "Slow typing" --interval 0.1
+# Write with interval between keys
+desktop-agent keyboard write "Slow typing" --interval 0.1
 
-# Pressionar uma tecla
-python main.py keyboard press enter
+# Press a key
+desktop-agent keyboard press enter
 
-# Pressionar múltiplas vezes
-python main.py keyboard press a --presses 5
+# Press multiple times
+desktop-agent keyboard press a --presses 5
 
-# Executar atalho de teclado
-python main.py keyboard hotkey "ctrl,c"
-python main.py keyboard hotkey "ctrl,shift,esc"
+# Execute keyboard shortcut
+desktop-agent keyboard hotkey "ctrl,c"
+desktop-agent keyboard hotkey "ctrl,shift,esc"
 
-# Segurar/soltar tecla
-python main.py keyboard keydown shift
-python main.py keyboard keyup shift
+# Hold/release key
+desktop-agent keyboard keydown shift
+desktop-agent keyboard keyup shift
 ```
 
-### 🖼️ Tela (`screen`)
+### 🖼️ Screen (`screen`)
 
 ```bash
-# Capturar screenshot
-python main.py screen screenshot minha_tela.png
+# Capture screenshot
+desktop-agent screen screenshot my_screen.png
 
-# Screenshot de região específica (x,y,largura,altura)
-python main.py screen screenshot regiao.png --region "100,100,500,400"
+# Screenshot of specific region (x,y,width,height)
+desktop-agent screen screenshot region.png --region "100,100,500,400"
 
-# Localizar imagem na tela
-python main.py screen locate imagem.png
+# Locate image on screen
+desktop-agent screen locate image.png
 
-# Localizar centro da imagem
-python main.py screen locate-center botao.png --confidence 0.8
+# Locate center of image
+desktop-agent screen locate-center button.png --confidence 0.8
 
-# Obter cor de um pixel
-python main.py screen pixel 100 200
+# Get pixel color
+desktop-agent screen pixel 100 200
 
-# Obter tamanho da tela
-python main.py screen size
+# Get screen size
+desktop-agent screen size
 
-# Verificar se coordenadas estão na tela
-python main.py screen on-screen 5000 5000
+# Check if coordinates are on screen
+desktop-agent screen on-screen 5000 5000
 
-# Buscar coordenadas de texto na tela usando OCR (busca parcial)
-python main.py screen locate-text-coordinates "OK"
+# Find text coordinates on screen using OCR (partial search)
+desktop-agent screen locate-text-coordinates "OK"
 
-# Buscar texto em uma imagem específica
-python main.py screen locate-text-coordinates "Confirmar" --image screenshot.png
+# Find text in specific image
+desktop-agent screen locate-text-coordinates "Confirm" --image screenshot.png
 
-# Busca case-sensitive
-python main.py screen locate-text-coordinates "Login" --case-sensitive
+# Case-sensitive search
+desktop-agent screen locate-text-coordinates "Login" --case-sensitive
 
-# Ler todo o texto da tela
-python main.py screen read-all-text
+# Read all text from screen
+desktop-agent screen read-all-text
 
-# Ler texto de uma imagem
-python main.py screen read-all-text --image captura.png
+# Read text from image
+desktop-agent screen read-all-text --image capture.png
 
-# Especificar idiomas para OCR (padrão: pt,en)
-python main.py screen locate-text-coordinates "Button" --lang "en"
-
-# Saída em JSON para integração
-python main.py screen locate-text-coordinates "Enviar" --json
+# Specify languages for OCR (default: pt,en)
+desktop-agent screen locate-text-coordinates "Button" --lang "en"
 ```
 
-### 💬 Mensagens (`message`)
+### 💬 Messages (`message`)
 
 ```bash
-# Mostrar alerta
-python main.py message alert "Olá!"
+# Show alert
+desktop-agent message alert "Hello!"
 
-# Confirmação
-python main.py message confirm "Você tem certeza?"
+# Confirmation
+desktop-agent message confirm "Are you sure?"
 
-# Prompt de entrada
-python main.py message prompt "Digite seu nome:"
+# Input prompt
+desktop-agent message prompt "Enter your name:"
 
-# Senha
-python main.py message password "Digite sua senha:"
+# Password
+desktop-agent message password "Enter your password:"
 ```
 
-## Exemplos de Automação
+## Automation Examples
 
-### Abrir Notepad e escrever
+### Open Notepad and write
 
 ```bash
-python main.py keyboard hotkey "win,r"
-python main.py keyboard write "notepad"
-python main.py keyboard press enter
-# Aguardar notepad abrir...
-python main.py keyboard write "Olá do Desktop Skill!"
+desktop-agent keyboard hotkey "win,r"
+desktop-agent keyboard write "notepad"
+desktop-agent keyboard press enter
+# Wait for notepad to open...
+desktop-agent keyboard write "Hello from Desktop Skill!"
 ```
 
-### Capturar screenshot e analisar
+### Capture screenshot and analyze
 
 ```bash
-python main.py screen screenshot tela_completa.png
-python main.py screen pixel 500 500
+desktop-agent screen screenshot full_screen.png
+desktop-agent screen pixel 500 500
 ```
 
-## Comandos Disponíveis
+## Available Commands
 
-Execute `python main.py --help` para ver todos os comandos:
+Run `desktop-agent --help` to see all commands:
 
 ```bash
-python main.py --help
-python main.py mouse --help
-python main.py keyboard --help
-python main.py screen --help
-python main.py message --help
+desktop-agent --help
+desktop-agent mouse --help
+desktop-agent keyboard --help
+desktop-agent screen --help
+desktop-agent message --help
 ```
 
-## Estrutura do Projeto
+## Project Structure
 
 ```
 desktop-skill/
-├── main.py              # Entry point da CLI
-├── commands/            # Módulos de comandos
+├── desktop_agent/       # Main package
 │   ├── __init__.py
-│   ├── mouse.py        # Comandos de mouse
-│   ├── keyboard.py     # Comandos de teclado
-│   ├── screen.py       # Comandos de tela/screenshot/OCR
-│   └── message.py      # Caixas de mensagem
-├── pyproject.toml      # Configuração do projeto
-└── README.md           # Esta documentação
+│   ├── commands/        # Command modules
+│   │   ├── __init__.py
+│   │   ├── mouse.py    # Mouse commands
+│   │   ├── keyboard.py # Keyboard commands
+│   │   ├── screen.py   # Screen/screenshot/OCR commands
+│   │   └── message.py  # Message boxes
+├── pyproject.toml      # Project configuration
+└── README.md           # This documentation
 ```
 
-## Tecnologias
+## Technologies
 
-- **PyAutoGUI**: Automação de GUI
-- **EasyOCR**: Reconhecimento óptico de caracteres
-- **Typer**: Framework CLI moderno
+- **PyAutoGUI**: GUI automation
+- **EasyOCR**: Optical character recognition
+- **Typer**: Modern CLI framework

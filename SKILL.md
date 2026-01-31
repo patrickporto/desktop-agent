@@ -1,6 +1,6 @@
 ---
 name: Desktop Control
-description: Control mouse, keyboard, and screen using PyAutoGUI for desktop automation tasks
+description: Control mouse, keyboard, and screen for desktop automation tasks
 ---
 
 # Desktop Control Skill
